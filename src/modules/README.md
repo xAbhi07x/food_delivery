@@ -5,6 +5,7 @@ Each module owns its logic and exposes a small interface. Route files and compon
 stay thin and call into modules.
 
 Modules are created in the phase that needs them. Do not add empty ones ahead of time.
+**`auth` exists (Phase 2).** The rest are planned:
 
 | Module          | Planned phase |
 | --------------- | ------------- |

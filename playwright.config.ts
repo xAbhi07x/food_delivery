@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
+
+// Lets the test process (provisioning helpers) read the same local settings as the app.
+if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 const isCI = !!process.env.CI;
 const port = 3000;

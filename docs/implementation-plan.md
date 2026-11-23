@@ -2,7 +2,7 @@
 
 **Source of truth:** [SRS.md](./SRS.md) (v1.0, 22 Nov 2026). This plan sequences the work. It does not restate every requirement. References like `FR-RIDER-07` and `AC-10` point to the SRS.
 **Companion files:** [.github/copilot-instructions.md](../.github/copilot-instructions.md), [README.md](../README.md).
-**Status:** Phase 1 (Foundation) is complete and CI is green on `main`. Phases 2–9 are not started. No business features exist.
+**Status:** Phase 1 (Foundation) is complete and CI is green on `main`. Phase 2 (Authentication & authorisation) is implemented and passing locally, not yet pushed. Phases 3–9 are not started. No business features exist beyond sign-in.
 
 ## 1. How to read this plan
 
@@ -96,31 +96,40 @@
 
 ### Phase 2 — Authentication & authorisation
 
+**Status: implemented and passing locally. CI for these changes has not run yet (not pushed). Real SMS (D-01) and hosted-project settings are pending.**
+
 **Objective:** Identity and role enforcement for all three roles, in the app and in the database, before any business data exists.
 
 **Features:** Customer mobile-OTP sign-in. Rider and admin sign-in. Role-based route protection. RLS foundation. (FR-AUTH-01…06)
 
 **Major tasks**
-- Choose the OTP provider (**D-01**) and wire Supabase Auth phone OTP to it. Handle OTP delivery failure with a clear message and retry.
-- Create `profiles` (id, full_name, phone, role, timestamps) with a `CUSTOMER` default for self-signup. A customer can never self-assign `RIDER` or `ADMIN`.
-- Decide how rider and admin accounts are created and how they sign in (**D-02**), then implement. Include how the first admin is bootstrapped.
-- Server-side session handling and route guards for `/` (customer), rider, and admin areas. Role is read from the database, never from client input.
-- RLS enabled on `profiles`, with a reusable role-check helper for later phases. Default deny.
-- Rate limiting and abuse protection on OTP request and verify endpoints (FR-AUTH-06).
-- Basic sign-out and session-expiry behaviour.
+- [x] Wire Supabase Auth phone OTP, built and tested against Supabase's local test OTP. The real SMS provider (**D-01**) is deliberately deferred and stays swappable by configuration. OTP delivery failure shows a clear message and the user can retry or change number.
+- [x] `profiles` (id, full_name, phone, role, timestamps) with a `CUSTOMER` default for self-signup. A customer can never self-assign `RIDER` or `ADMIN`: the signup trigger ignores metadata, and column-level grants stop users updating `role`, `phone` or `id`.
+- [x] Sign-in per the decided **D-02**: riders by phone OTP with admin-created accounts (`npm run user:create-rider`), admins by email and password, and the one-off developer script that bootstraps the first admin (`npm run user:create-admin`).
+- [x] Server-side session handling (`@supabase/ssr`, session-refresh `proxy.ts`) and route guards for the customer (`/account`), rider (`/rider`) and admin (`/admin`) areas. The role is read from the database by `requireRole`, never from client input, and the check fails closed.
+- [x] RLS enabled on `profiles` with a reusable `current_user_role()` helper for later phases. Default deny, plus a standing test that every `public` table has RLS enabled.
+- [~] Rate limiting on OTP request and verify (FR-AUTH-06): one code per number per minute is configured and tested; the per-IP limits are Supabase's defaults, configured but **not load-tested**, and the hosted project must be configured separately (see "Launch settings" in [decisions.md](./decisions.md)).
+- [~] Sign-out works. Session expiry and refresh rely on Supabase defaults (1-hour access token, refreshed by the proxy) and are **not covered by a dedicated test**.
 
-**Dependencies:** Phase 1. **D-01** and **D-02** must be settled.
+**Dependencies:** Phase 1. **D-02** is decided. **D-01** is deferred (not a blocker; see decisions.md). The admin password policy was set to 12+ characters with upper, lower and digit (the SRS specifies none). **Admin password recovery is not implemented** and is not specified in the SRS.
 
-**Deliverables:** Working login flows for each role; `profiles` migration with RLS; role-check helper; OTP rate-limiting; authorisation test suite.
+**Deliverables:** Working login flows for each role; `profiles` migration with RLS; role-check helper; OTP rate-limiting; authorisation test suite; provisioning scripts.
 
 **Acceptance criteria**
-- AC-01: a customer logs in with OTP and gets an authenticated session.
-- A customer cannot access rider or admin areas, by UI or by direct API call. Rider cannot access admin. Unauthenticated requests are rejected.
-- A user cannot change their own `role`.
-- OTP endpoints are rate-limited. Repeated requests are throttled.
-- No privileged key reaches the browser.
+- [x] AC-01: a customer logs in with OTP and gets an authenticated session. *Covered by integration and e2e tests.*
+- [x] A customer cannot access rider or admin areas, by UI or by direct API call. Rider cannot access admin. Unauthenticated requests are rejected. *No rider or admin APIs exist yet; the only API-exposed table is `profiles`, whose access is tested per role. Every area is guarded in each page, verified in e2e for all role pairs.*
+- [x] A user cannot change their own `role`. *Tested in the database and through the public API.*
+- [~] OTP endpoints are rate-limited. Repeated requests are throttled. *Per-number cooldown is tested; see the rate-limiting note above.*
+- [x] No privileged key reaches the browser. *Unit tests, `npm run check:bundle` with the real secret loaded, and a guard that only `src/lib/env/` references the secret key.*
 
 **Tests required:** Unit tests for role guards. DB/RLS tests per role on `profiles` (read own, cannot read others, cannot escalate role). Integration tests for OTP flow using the provider's test mode or a stub. Rate-limit test. E2E: customer login. Security check: secret key absent from client bundle (`npm run check:bundle`).
+
+**Test results (local):** 54 unit, 27 database, 14 integration and 14 end-to-end tests pass, along with lint, format check, type-check, build and the bundle check.
+
+**Known gap (documented, tested):** email sign-up is enabled because admins sign in with email, so anyone can self-register an email-only account through the public API. It is a powerless `CUSTOMER` with no phone and cannot become anything else without the secret key. Decide before launch whether to block it (for example with Supabase's `before_user_created` hook or CAPTCHA).
+
+**Pending items (need you)**
+- Real SMS provider (**D-01**) and the hosted-project launch settings. Neither blocks Phase 3.
 
 ---
 
@@ -359,8 +368,8 @@ The SRS says these are undecided (SRS §12 and elsewhere), or the SRS needs them
 
 | ID | Decision | SRS position | Needed by | Notes |
 |---|---|---|---|---|
-| D-01 | OTP provider (SMS delivery for Supabase Auth phone OTP) | "To be selected"; pricing to be reviewed before implementation (§4.1) | Phase 2 | Affects cost and delivery reliability in India. |
-| D-02 | How rider and admin accounts are created and how they sign in (phone OTP, password, or other); first-admin bootstrap | Only "authenticated accounts" / "assigned account" (FR-AUTH-03/04, §3.2) | Phase 2 | |
+| D-01 | OTP provider (SMS delivery for Supabase Auth phone OTP) | "To be selected"; pricing to be reviewed before implementation (§4.1) | Before real SMS testing / launch | **Still open, by choice.** Phase 2 is built and tested against Supabase's local test OTP, behind Supabase's provider configuration so the provider stays swappable. Choose the provider before testing real SMS on a hosted project. Affects cost and delivery reliability in India; DLT registration lead time applies, so start early. |
+| D-02 | How rider and admin accounts are created and how they sign in; first-admin bootstrap | Only "authenticated accounts" / "assigned account" (FR-AUTH-03/04, §3.2) | Phase 2 | **Decided:** riders sign in by phone OTP with accounts pre-created by an admin; admins sign in with email and password; the first admin is created by a one-off documented developer script. See [decisions.md](./decisions.md). |
 | D-03 | Rider notification channel (in-app realtime, web push, SMS, other) | "To be selected" | Phase 5 | Browser PWA limits apply. DB list remains the source of truth. |
 | D-04 | Map provider (maps, geocoding/address selection, distance/ETA data) | "To be selected" | Phase 4 (location capture) | Also drives the Phase 7 tracking view and ETA options. |
 | D-05 | Exact service-area boundary and its model (centre + radius, polygon, other) | "Approximately 5 km"; boundary to be finalised | Phase 4 (model), launch (values) | The model affects how the check is built. |

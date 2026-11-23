@@ -12,15 +12,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Non-secret placeholders: Phase 1 builds and e2e tests do not contact Supabase.
-  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:14321
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
-
 jobs:
   checks:
     name: Lint, types, unit tests, build
     runs-on: ubuntu-latest
+    env:
+      # Non-secret placeholders: this job never contacts Supabase.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:14321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,8 +34,8 @@ jobs:
       - run: npm run build
       - run: npm run check:bundle
 
-  database:
-    name: Database migrations and tests
+  integration:
+    name: Database, integration and end-to-end tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,25 +46,25 @@ jobs:
       - run: npm ci
       - name: Start local Supabase
         run: npx supabase start
+      - name: Export local Supabase settings
+        run: |
+          npx supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          read_var() { grep "^$1=" "$RUNNER_TEMP/supabase.env" | cut -d= -f2- | tr -d '"'; }
+          SECRET="$(read_var SECRET_KEY)"
+          echo "::add-mask::$SECRET"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(read_var API_URL)"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(read_var PUBLISHABLE_KEY)"
+            echo "SUPABASE_SECRET_KEY=$SECRET"
+          } >> "$GITHUB_ENV"
+          rm "$RUNNER_TEMP/supabase.env"
       - name: Reset database from migrations
         run: npx supabase db reset
       - run: npm run test:db
-      - name: Stop local Supabase
-        if: always()
-        run: npx supabase stop --no-backup
-
-  e2e:
-    name: End-to-end tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npm run test:integration
       - run: npm run build
+      - run: npm run check:bundle
+      - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -73,3 +72,6 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup

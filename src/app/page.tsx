@@ -8,13 +8,21 @@ export default function Home() {
         <CardHeader>
           <h1 className="text-lg font-medium">Murliganj Food Delivery</h1>
           <CardDescription>
-            Foundation phase. No features are available yet.
+            Sign-in is available. Ordering is not available yet.
           </CardDescription>
         </CardHeader>
       </Card>
-      <Button render={<a href="/api/health" />} variant="outline">
-        Check health endpoint
+      <Button nativeButton={false} render={<a href="/login" />}>
+        Customer sign in
       </Button>
+      <div className="flex justify-between text-sm text-muted-foreground">
+        <a href="/rider/login" className="underline">
+          Rider sign in
+        </a>
+        <a href="/admin/login" className="underline">
+          Admin sign in
+        </a>
+      </div>
     </main>
   );
 }

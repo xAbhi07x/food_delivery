@@ -23,16 +23,32 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            [_ in never]: never
+            "profiles": {
+                  Row: {
+                    "created_at": string,"full_name": string | null,"id": string,"phone": string | null,"role": Database["public"]['Enums']["user_role"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"full_name"?: string | null,"id": string,"phone"?: string | null,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"full_name"?: string | null,"id"?: string,"phone"?: string | null,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                }
           }
           Views: {
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "current_user_role":
+{ Args: Record<PropertyKey, never>; Returns: Database["public"]['Enums']["user_role"]
+                           }
           }
           Enums: {
-            [_ in never]: never
+            "user_role": "CUSTOMER"|"RIDER"|"ADMIN"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -152,7 +168,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            
+            "user_role": ["CUSTOMER", "RIDER", "ADMIN"]
           }
         }
 } as const

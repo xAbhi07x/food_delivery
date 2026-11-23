@@ -50,14 +50,35 @@ describe("secret separation", () => {
     expect(source).toMatch(/^import "server-only";/m);
   });
 
-  it("does not import the server env module from client components", () => {
+  it("does not import server-only modules from client components", () => {
     const offenders = listSourceFiles(path.join(root, "src")).filter((file) => {
       const source = readFileSync(file, "utf8");
       return (
         /^["']use client["']/m.test(source) &&
-        /lib\/env\/server|SUPABASE_SECRET_KEY/.test(source)
+        /lib\/env\/server|lib\/supabase\/server|current-user|SUPABASE_SECRET_KEY/.test(
+          source,
+        )
       );
     });
     expect(offenders).toEqual([]);
+  });
+
+  it("references the secret key only inside the env module", () => {
+    const offenders = listSourceFiles(path.join(root, "src"))
+      .filter((file) => !file.includes(path.join("src", "lib", "env")))
+      .filter((file) =>
+        /SUPABASE_SECRET_KEY|SERVICE_ROLE/.test(readFileSync(file, "utf8")),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it("marks modules that read the signed-in user as server-only", () => {
+    for (const file of [
+      ["src", "lib", "supabase", "server.ts"],
+      ["src", "modules", "auth", "current-user.ts"],
+    ]) {
+      const source = readFileSync(path.join(root, ...file), "utf8");
+      expect(source, file.join("/")).toMatch(/^import "server-only";/m);
+    }
   });
 });

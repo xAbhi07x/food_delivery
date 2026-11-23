@@ -60,7 +60,9 @@ Guiding principle (SRS §13): *build a simple food ordering and delivery platfor
 
 ## 6. Authentication, authorisation & security
 
-- Customer auth is mobile OTP through a trusted provider (the provider is undecided). Riders and admins have authenticated accounts with their role. Role lives in the database (`profiles.role`) and is **never** taken from client-supplied data.
+- Sign-in methods (decision D-02): customers and riders use phone OTP; admins use email and password. The SMS provider is undecided (D-01). Riders and admins are **never self-service**: they are created with the secret key (`npm run user:create-rider`, `npm run user:create-admin`). New auth users always start as `CUSTOMER` (database trigger); the role is **never** read from signup metadata or any client-supplied data. Role lives in the database (`profiles.role`).
+- **Guard every protected page, server action and data function with `requireRole()`** (`src/modules/auth/current-user.ts`) at the top. Do not rely on layouts or on `src/proxy.ts`: the proxy only refreshes sessions. Use `getCurrentUser()` for the identity (it verifies with the Auth server and fails closed).
+- **Every new table in `public` must:** enable RLS, revoke the default API grants (`revoke all ... from anon, authenticated`) and grant back only what is needed (column-level for updates where relevant), add per-role policies, and have a DB test for each role. Use `public.current_user_role()` in policies. `tests/db/rls-baseline.test.ts` fails if a table lacks RLS or is readable by `anon` without being listed there.
 - Authorisation is enforced on the server **and** in RLS. Hiding a page is never access control. Check role *and* ownership or assignment on every request.
 - The Supabase secret key (`SUPABASE_SECRET_KEY`, or any privileged key) is **server-only**. It must never be in browser bundles or `NEXT_PUBLIC_*` variables. Only the publishable key is public. Read environment variables through `src/lib/env/` (never `process.env` directly), and keep `src/lib/env/server.ts` out of client components.
 - Validate all input on the server (types, ranges, lengths, enums, coordinates). Validate image uploads (type, size) and store them in Supabase Storage with sensible access rules.
@@ -92,7 +94,8 @@ Guiding principle (SRS §13): *build a simple food ordering and delivery platfor
 - Security tests: unauthenticated and wrong-role access, cross-customer access, rider-to-rider access, privileged key not in client bundle.
 - Peak-load testing is mandatory before launch (SRS §9.1).
 - Run the relevant tests, lint, and type-check before declaring work complete. If a check cannot be run, say so instead of claiming success.
-- **Commands:** `npm test` (unit), `npm run test:db` (needs `npm run db:start`), `npm run test:e2e`, `npm run lint`, `npm run typecheck`, `npm run format:check`, and `npm run build` followed by `npm run check:bundle`. After any schema change run `npm run db:types`. Unit tests live next to the source as `*.test.ts` or in `tests/unit/`.
+- **Commands:** `npm test` (unit), `npm run test:db`, `npm run test:integration` and `npm run test:e2e` (the last three need `npm run db:start` and `.env.local`), `npm run lint`, `npm run typecheck`, `npm run format:check`, and `npm run build` followed by `npm run check:bundle`. After any schema change run `npm run db:types`. Unit tests live next to the source as `*.test.ts` or in `tests/unit/`.
+- Tests that request an OTP must use their own phone number from `[auth.sms.test_otp]` in `supabase/config.toml` (one code per number per minute), and must delete the users they create.
 - This project uses Next.js 16, which differs from older versions. Follow [AGENTS.md](../AGENTS.md) and read the matching docs in `node_modules/next/dist/docs/` before writing Next.js code.
 
 ## 9. Error handling & validation

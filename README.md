@@ -2,11 +2,12 @@
 
 A hyperlocal food ordering and delivery web application for **Murliganj, Madhepura, Bihar, India**.
 
-> **Project status: Phase 1 (Foundation) is complete and CI is green. No business features exist yet.**
-> The app is a working skeleton: a placeholder home page and a health endpoint, with tooling, a
-> local database workflow, environment validation, tests and CI in place. No hosted Supabase
-> project exists yet. Authentication, the
-> catalog, ordering, riders, tracking and the admin dashboard are **not implemented**. See the
+> **Project status: Phases 1 (Foundation) and 2 (Authentication & authorisation) are implemented. No ordering features exist yet.**
+> Sign-in works for customers (phone OTP), riders (phone OTP, accounts created by an admin) and
+> administrators (email and password), with role-protected stub pages and database-level access rules.
+> Phase 2 has been verified locally; its CI run is pending. Real SMS delivery is **not** set up
+> (provider undecided; local sign-in uses Supabase test numbers) and no hosted Supabase project exists yet. The
+> catalog, ordering, rider operations, tracking and the admin dashboard are **not implemented**. See the
 > [implementation plan](docs/implementation-plan.md) for what comes next.
 
 ## Overview
@@ -57,7 +58,7 @@ Based on the SRS's recommended stack (§7.1). Items marked _installed_ are in th
 | Web app              | Next.js 16 (App Router), React 19, TypeScript (strict)                              | Installed                      |
 | Styling / UI         | Tailwind CSS 4, shadcn/ui                                                           | Installed                      |
 | Database             | Supabase PostgreSQL 17 (local via Docker)                                           | Local workflow working         |
-| Auth                 | Supabase Auth (mobile OTP)                                                          | Phase 2                        |
+| Auth                 | Supabase Auth: phone OTP (customers, riders), email + password (admins)             | Implemented; SMS provider open |
 | Realtime / Storage   | Supabase Realtime, Supabase Storage                                                 | Later phases                   |
 | Validation           | Zod                                                                                 | Installed (environment only)   |
 | Tests                | Vitest (unit, database), Playwright (end-to-end)                                    | Installed                      |
@@ -75,30 +76,38 @@ Architecture: a **modular monolith**. One Next.js application will contain the c
 .
 ├── .github/
 │   ├── copilot-instructions.md   # Project guidance for Copilot
-│   └── workflows/ci.yml          # CI: lint, types, tests, build, database, e2e
+│   └── workflows/ci.yml          # CI: checks job; database + integration + e2e job
 ├── docs/
 │   ├── SRS.md                    # Software Requirements Specification (source of truth)
 │   ├── implementation-plan.md    # Phased plan, open decisions, ambiguities
 │   └── decisions.md              # Technical decision log
 ├── scripts/
-│   └── check-client-bundle.mjs   # Fails if privileged variables reach the client bundle
+│   ├── check-client-bundle.mjs   # Fails if privileged variables reach the client bundle
+│   ├── create-admin.mjs          # Creates an administrator account (developer-run)
+│   ├── create-rider.mjs          # Pre-creates a rider account (developer/admin-run)
+│   └── lib/                      # Shared provisioning and CLI helpers
 ├── src/
-│   ├── app/                      # Next.js routes (home page, /api/health)
+│   ├── app/                      # Routes: /, /login, /account, /rider, /rider/login, /admin, /admin/login, /api/health
 │   ├── components/ui/            # shadcn/ui components
 │   ├── lib/
 │   │   ├── env/                  # Validated environment variables (public vs server-only)
-│   │   ├── supabase/             # Generated database types
+│   │   ├── supabase/             # Server client, session refresh, generated database types
 │   │   └── utils.ts
 │   ├── instrumentation.ts        # Validates the environment when the server starts
-│   └── modules/                  # Domain modules go here (see src/modules/README.md)
+│   ├── proxy.ts                  # Refreshes expiring sessions (not an authorisation check)
+│   └── modules/
+│       └── auth/                 # Sign-in actions and forms, role guards (requireRole), validation
 ├── supabase/
-│   ├── config.toml               # Local Supabase configuration
-│   ├── migrations/               # Version-controlled SQL migrations
+│   ├── config.toml               # Local Supabase configuration (ports, auth, test OTP numbers)
+│   ├── migrations/               # Version-controlled SQL migrations (baseline, profiles and roles)
 │   └── seed.sql                  # Development seed data (empty for now)
 ├── tests/
 │   ├── unit/                     # Unit tests (more live next to source as *.test.ts)
-│   ├── db/                       # Database tests against local Postgres
-│   └── e2e/                      # Playwright end-to-end tests
+│   ├── db/                       # Database tests: constraints and Row Level Security
+│   ├── integration/              # Tests against the local Supabase Auth API
+│   ├── e2e/                      # Playwright end-to-end tests
+│   ├── helpers/                  # Shared test helpers
+│   └── setup/                    # Test environment loading
 ├── .env.example                  # Environment variable names (no secrets)
 └── AGENTS.md                     # Generated by Next.js: tells AI tools to read its bundled docs
 ```
@@ -134,6 +143,22 @@ Then open <http://localhost:3000> and <http://localhost:3000/api/health> (expect
 
 Stop the local database with `npm run db:stop`.
 
+### Signing in locally
+
+No real SMS is sent locally. Phone numbers `9999900001` to `9999900012` accept the code `123456`
+(configured under `[auth.sms.test_otp]` in `supabase/config.toml`; they work **only** on the local stack). Any other number fails
+with a "could not send the code" message, because no SMS provider is configured yet.
+
+| Role     | Where             | How                                                                                                  |
+| -------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| Customer | `/login`          | Enter a test number, then `123456`. An account is created automatically.                             |
+| Rider    | `/rider/login`    | First create the account: `npm run user:create-rider -- --phone 9999900002 --name "Test Rider"`, then sign in as above. |
+| Admin    | `/admin/login`    | First create the account: `npm run user:create-admin -- --email you@example.com --name "Your Name"` (prompts for a password: 12+ characters with upper, lower and a digit). |
+
+The two `user:create-*` commands need `SUPABASE_SECRET_KEY` (the `SECRET_KEY` from `npm run db:status`) in `.env.local`, and they
+refuse to act on a non-local project unless you type `yes`. Each role can only open its own area; the
+other areas redirect you to your own home.
+
 ## Environment variables
 
 Copy [.env.example](.env.example) to `.env.local` (git-ignored) and fill in the values.
@@ -142,7 +167,7 @@ Copy [.env.example](.env.example) to `.env.local` (git-ignored) and fill in the 
 | -------------------------------------- | ----------- | -------- | --------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SUPABASE_URL`             | Public      | Yes      | Supabase API URL. Local: `http://127.0.0.1:14321`.                                |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public      | Yes      | Browser-safe key. Local value: `PUBLISHABLE_KEY` printed by `npm run db:status`.  |
-| `SUPABASE_SECRET_KEY`                  | Server only | No (yet) | Bypasses Row Level Security. Not used yet. Never expose it to the browser.        |
+| `SUPABASE_SECRET_KEY`                  | Server only | For scripts and tests | Bypasses Row Level Security. Used only by `user:create-*` and the integration and e2e tests; the web app does not use it. Never expose it to the browser. |
 | `TEST_DATABASE_URL`                    | Tests only  | No       | Override for `npm run test:db`. Defaults to the local Supabase database.          |
 
 The server validates its environment when it starts and **exits immediately** if a required variable is missing or malformed. The error names the variable, never its value. Never commit `.env.local` or real secrets.
@@ -162,7 +187,7 @@ The database is PostgreSQL on Supabase. Locally it runs in Docker through the Su
 
 Rules: schema changes are SQL migrations in `supabase/migrations/`; never edit one that has been applied elsewhere (add a new one); regenerate the types after changing the schema.
 
-Current state: there is **one baseline migration that creates no tables**. The real schema (starting with `profiles`) arrives in Phase 2. Local ports use the 143xx range rather than Supabase's default 543xx because Windows can reserve the default range. See the [decision log](docs/decisions.md).
+Current state: two migrations. The baseline creates nothing; `profiles_and_roles` creates the `user_role` enum, the `profiles` table (with a signup trigger, Row Level Security and a `current_user_role()` helper) and locks down its privileges. Local ports use the 143xx range rather than Supabase's default 543xx because Windows can reserve the default range. See the [decision log](docs/decisions.md).
 
 Local Studio: <http://127.0.0.1:14323>. Local email inbox (Mailpit): <http://127.0.0.1:14324>.
 
@@ -180,6 +205,8 @@ A hosted Supabase project is **not set up yet**. It will be needed for deploymen
 | `npm run format:check` | Check formatting without writing                          |
 | `npm run typecheck`    | Generate Next.js route types, then run `tsc --noEmit`     |
 | `npm run check:bundle` | After `build`, fail if privileged variables are in the client bundle |
+| `npm run user:create-admin` | Create an administrator (see "Signing in locally") |
+| `npm run user:create-rider` | Pre-create a rider account (see "Signing in locally") |
 
 Markdown files are not auto-formatted by Prettier.
 
@@ -188,16 +215,17 @@ Markdown files are not auto-formatted by Prettier.
 | Command                                              | Runs                       | Needs                                  |
 | ---------------------------------------------------- | -------------------------- | -------------------------------------- |
 | `npm test`                                           | Unit tests (Vitest)        | Nothing external                       |
-| `npm run test:db`                                    | Database tests (Vitest)    | Local Supabase running (`db:start`)    |
-| `npm run test:e2e`                                   | End-to-end tests (Playwright, mobile Chromium) | `.env.local`; starts the dev server itself |
+| `npm run test:db`                                    | Database tests (Vitest): constraints and Row Level Security per role | Local Supabase running (`db:start`) |
+| `npm run test:integration`                           | Tests against the real local Auth API (OTP, rate limit, provisioning, privilege escalation) | Local Supabase running; `.env.local` incl. `SUPABASE_SECRET_KEY` |
+| `npm run test:e2e`                                   | End-to-end tests (Playwright, mobile Chromium): every sign-in flow and role guard | Local Supabase running; `.env.local`; starts the dev server itself |
 
 First time only, install the Playwright browser: `npx playwright install chromium`.
 
-Current tests prove the tooling works: environment validation, secret-separation checks, database connectivity and migration state, and a smoke test of the health endpoint and home page. **There are no business-logic tests yet because there is no business logic.** The plan lists the tests each phase must add, including concurrency tests, RLS tests, the SRS acceptance scenarios (AC-01 to AC-22) and mandatory peak-load testing before launch.
+What is covered today: environment validation and secret separation, phone and form validation, the access rules, the `profiles` table (constraints, signup trigger, Row Level Security, no privilege escalation), the OTP flows (including wrong code, cooldown and SMS delivery failure), rider and admin provisioning, and browser-level sign-in and role redirects. There are **no ordering or delivery tests yet because those features do not exist**. The plan lists the tests each later phase must add, including concurrency tests, the SRS acceptance scenarios (AC-01 to AC-22) and mandatory peak-load testing before launch.
 
 ## CI
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on pushes to `main` and on pull requests: formatting, lint, type-check, unit tests, build and bundle check; database tests against a local Supabase stack; and Playwright end-to-end tests. All three jobs passed on the first run on `main`.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on pushes to `main` and on pull requests, in two jobs: **checks** (formatting, lint, type-check, unit tests, build, bundle check) and **database, integration and end-to-end tests** (starts a local Supabase stack, then runs the database, integration and Playwright tests). Phase 1's workflow passed on `main`; the Phase 2 version has **not run on GitHub yet**.
 
 ## Deployment overview
 
@@ -208,7 +236,7 @@ Current tests prove the tooling works: environment validation, secret-separation
 Development proceeds in nine phases. See the [implementation plan](docs/implementation-plan.md) for details, acceptance criteria, and tests.
 
 1. Foundation — **complete** (CI green)
-2. Authentication & authorisation
+2. Authentication & authorisation — **implemented and verified locally** (CI run, real SMS provider and hosted settings pending)
 3. Product catalog & customisation
 4. Customer ordering (cart to COD order)
 5. Rider management & order assignment
