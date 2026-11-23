@@ -1,0 +1,3 @@
+-- Development seed data. Applied by `npm run db:reset` after migrations.
+-- Never put real credentials or personal data here.
+-- Intentionally empty in Phase 1; catalog seed data arrives in Phase 3.
