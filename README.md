@@ -2,10 +2,10 @@
 
 A hyperlocal food ordering and delivery web application for **Murliganj, Madhepura, Bihar, India**.
 
-> **Project status: Phase 1 (Foundation) is complete locally. No business features exist yet.**
+> **Project status: Phase 1 (Foundation) is complete and CI is green. No business features exist yet.**
 > The app is a working skeleton: a placeholder home page and a health endpoint, with tooling, a
-> local database workflow, environment validation, tests and CI in place. CI has not yet run on
-> GitHub and no hosted Supabase project exists. Authentication, the
+> local database workflow, environment validation, tests and CI in place. No hosted Supabase
+> project exists yet. Authentication, the
 > catalog, ordering, riders, tracking and the admin dashboard are **not implemented**. See the
 > [implementation plan](docs/implementation-plan.md) for what comes next.
 
@@ -62,7 +62,7 @@ Based on the SRS's recommended stack (§7.1). Items marked _installed_ are in th
 | Validation           | Zod                                                                                 | Installed (environment only)   |
 | Tests                | Vitest (unit, database), Playwright (end-to-end)                                    | Installed                      |
 | Lint / format        | ESLint 9, Prettier                                                                  | Installed                      |
-| CI                   | GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml))               | Written; not yet run on GitHub |
+| CI                   | GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml))               | Passing on `main`              |
 | Hosting              | Managed Next.js hosting                                                             | Provider not chosen            |
 
 **Not yet decided:** OTP/SMS provider, map provider, rider notification channel, hosting provider, load-test tool, and monitoring tooling. See the [open decisions](docs/implementation-plan.md#3-open-decisions-do-not-resolve-without-the-owner). Technical decisions already made are in the [decision log](docs/decisions.md).
@@ -197,7 +197,7 @@ Current tests prove the tooling works: environment validation, secret-separation
 
 ## CI
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on pushes to `main` and on pull requests: formatting, lint, type-check, unit tests, build and bundle check; database tests against a local Supabase stack; and Playwright end-to-end tests. **It has not been run on GitHub yet** (it has only been syntax-checked), so treat it as unverified until the first run passes.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on pushes to `main` and on pull requests: formatting, lint, type-check, unit tests, build and bundle check; database tests against a local Supabase stack; and Playwright end-to-end tests. All three jobs passed on the first run on `main`.
 
 ## Deployment overview
 
@@ -207,7 +207,7 @@ Current tests prove the tooling works: environment validation, secret-separation
 
 Development proceeds in nine phases. See the [implementation plan](docs/implementation-plan.md) for details, acceptance criteria, and tests.
 
-1. Foundation — **complete locally** (first GitHub CI run pending)
+1. Foundation — **complete** (CI green)
 2. Authentication & authorisation
 3. Product catalog & customisation
 4. Customer ordering (cart to COD order)

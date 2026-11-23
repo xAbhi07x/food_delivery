@@ -2,7 +2,7 @@
 
 **Source of truth:** [SRS.md](./SRS.md) (v1.0, 22 Nov 2026). This plan sequences the work. It does not restate every requirement. References like `FR-RIDER-07` and `AC-10` point to the SRS.
 **Companion files:** [.github/copilot-instructions.md](../.github/copilot-instructions.md), [README.md](../README.md).
-**Status:** Phase 1 (Foundation) is complete locally; CI has not yet run on GitHub (see Phase 1). Phases 2–9 are not started. No business features exist.
+**Status:** Phase 1 (Foundation) is complete and CI is green on `main`. Phases 2–9 are not started. No business features exist.
 
 ## 1. How to read this plan
 
@@ -58,7 +58,7 @@
 
 ### Phase 1 — Foundation
 
-**Status: complete locally. Two items are pending and need you (see "Pending items" below).**
+**Status: complete. CI passes on GitHub. One optional item is pending (a hosted Supabase project, which needs your Supabase account).**
 
 **Objective:** A reproducible, empty-but-working project skeleton, with tooling, database migrations, and tests running, and no business features.
 
@@ -71,7 +71,7 @@
 - [x] Migrations directory and process. Baseline no-op migration applies on a fresh database; `npm run db:reset` is reproducible.
 - [x] `.env.example` (names only), typed environment validation (zod), server-only vs public separation. The server fails fast at startup on invalid configuration.
 - [x] `.gitignore`, ESLint, Prettier, type-check, and runners for unit tests (Vitest), DB tests (Vitest + `pg`), and e2e tests (Playwright).
-- [~] CI on GitHub: workflow written and YAML-validated, **not yet run on GitHub**.
+- [x] CI on GitHub: workflow passes on `main` (checks, database, and e2e jobs all green on the first run).
 - [x] Conventions recorded for D-12, D-13, D-14 (see [decisions.md](./decisions.md)).
 - [x] Decision log in `docs/decisions.md`.
 
@@ -80,19 +80,17 @@
 **Deliverables:** Running app skeleton; migrations workflow; CI pipeline; `.env.example`; updated README with real, verified setup commands; decision log.
 
 **Acceptance criteria**
-- [~] A new developer can follow the README from clone to a running local app and passing tests. *Every step has been run on the primary development machine, but not from a fresh clone on a second machine.*
+- [x] A new developer can follow the README from clone to a running local app and passing tests. *Verified from a fresh clone of the GitHub repository: `npm ci`, environment file, then format check, lint, type-check, unit, database, build, bundle check and e2e all pass. It ran on the primary development machine, so a second machine is still a nice-to-have check.*
 - [x] A migration can be applied to a fresh database and the database reset reproducibly. *Verified with `db:reset` followed by `test:db`.*
 - [x] No secret is committed. Privileged keys are server-only. *Verified by unit tests and `npm run check:bundle`, including a negative test showing the bundle check detects a planted value.*
-- [ ] CI runs and passes on the default branch. *Pending the first push to GitHub.*
+- [x] CI runs and passes on the default branch. *Run 1 on `main` (commit `c786d3c`): all three jobs succeeded.*
 
 **Tests required:** Smoke test (app boots, health route returns OK); one trivial unit test, one DB test, and one e2e test proving each runner works; env-validation test (missing required variable fails fast).
 
 **Test results (local):** 13 unit tests pass, 4 database tests pass (before and after a database reset), 2 Playwright tests pass on a mobile viewport. Lint, format check, type-check and production build pass. Fail-fast startup was verified manually with an invalid `NEXT_PUBLIC_SUPABASE_URL`.
 
 **Pending items (need you)**
-1. Push to GitHub and confirm the CI workflow passes (and fix anything that only fails on Linux runners).
-2. Create a hosted Supabase dev project if you want a shared environment before Phase 9. Not required for local development or Phase 2 development.
-3. Optionally clone the repository on a second machine to confirm the README steps.
+1. Create a hosted Supabase dev project if you want a shared environment before Phase 9. Not required for local development. It will be needed when OTP is configured in Phase 2 (the OTP provider and hosted settings depend on D-01).
 
 ---
 
