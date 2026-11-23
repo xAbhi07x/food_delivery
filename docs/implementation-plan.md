@@ -2,7 +2,7 @@
 
 **Source of truth:** [SRS.md](./SRS.md) (v1.0, 22 Nov 2026). This plan sequences the work. It does not restate every requirement. References like `FR-RIDER-07` and `AC-10` point to the SRS.
 **Companion files:** [.github/copilot-instructions.md](../.github/copilot-instructions.md), [README.md](../README.md).
-**Status:** Phase 1 (Foundation) is complete and CI is green on `main`. Phase 2 (Authentication & authorisation) is implemented and passing locally, not yet pushed. Phases 3–9 are not started. No business features exist beyond sign-in.
+**Status:** Phases 1 (Foundation) and 2 (Authentication & authorisation) are complete and CI is green on `main`. Phases 3–9 are not started. No business features exist beyond sign-in.
 
 ## 1. How to read this plan
 
@@ -96,7 +96,7 @@
 
 ### Phase 2 — Authentication & authorisation
 
-**Status: implemented and passing locally. CI for these changes has not run yet (not pushed). Real SMS (D-01) and hosted-project settings are pending.**
+**Status: complete. CI passes on GitHub (run on commit `d15f1bb`: both jobs green). Real SMS (D-01) and hosted-project settings are pending.**
 
 **Objective:** Identity and role enforcement for all three roles, in the app and in the database, before any business data exists.
 

@@ -5,7 +5,7 @@ A hyperlocal food ordering and delivery web application for **Murliganj, Madhepu
 > **Project status: Phases 1 (Foundation) and 2 (Authentication & authorisation) are implemented. No ordering features exist yet.**
 > Sign-in works for customers (phone OTP), riders (phone OTP, accounts created by an admin) and
 > administrators (email and password), with role-protected stub pages and database-level access rules.
-> Phase 2 has been verified locally; its CI run is pending. Real SMS delivery is **not** set up
+> Phase 2 is verified locally and in CI. Real SMS delivery is **not** set up
 > (provider undecided; local sign-in uses Supabase test numbers) and no hosted Supabase project exists yet. The
 > catalog, ordering, rider operations, tracking and the admin dashboard are **not implemented**. See the
 > [implementation plan](docs/implementation-plan.md) for what comes next.
@@ -225,7 +225,7 @@ What is covered today: environment validation and secret separation, phone and f
 
 ## CI
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on pushes to `main` and on pull requests, in two jobs: **checks** (formatting, lint, type-check, unit tests, build, bundle check) and **database, integration and end-to-end tests** (starts a local Supabase stack, then runs the database, integration and Playwright tests). Phase 1's workflow passed on `main`; the Phase 2 version has **not run on GitHub yet**.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on pushes to `main` and on pull requests, in two jobs: **checks** (formatting, lint, type-check, unit tests, build, bundle check) and **database, integration and end-to-end tests** (starts a local Supabase stack, then runs the database, integration and Playwright tests). Phase 1 and Phase 2 workflows both passed on `main` (all jobs green on GitHub).
 
 ## Deployment overview
 
@@ -236,7 +236,7 @@ What is covered today: environment validation and secret separation, phone and f
 Development proceeds in nine phases. See the [implementation plan](docs/implementation-plan.md) for details, acceptance criteria, and tests.
 
 1. Foundation — **complete** (CI green)
-2. Authentication & authorisation — **implemented and verified locally** (CI run, real SMS provider and hosted settings pending)
+2. Authentication & authorisation — **complete** (CI green; real SMS provider and hosted settings pending)
 3. Product catalog & customisation
 4. Customer ordering (cart to COD order)
 5. Rider management & order assignment
